@@ -7,7 +7,7 @@ import numpy as np
 import torch
 from torch import distributions
 
-from cs285.infrastructure import pytorch_util as ptu
+from cs285.infrastructure import pytorch_util as ptu 
 
 
 class MLPPolicy(nn.Module):
@@ -59,8 +59,14 @@ class MLPPolicy(nn.Module):
     def get_action(self, obs: np.ndarray) -> np.ndarray:
         """Takes a single observation (as a numpy array) and returns a single action (as a numpy array)."""
         # TODO: implement get_action
-        action = None
-
+        if len(obs.shape) > 1:
+            observation = obs
+        else:
+            observation = obs[None] # add a dimension at the beginning
+        
+        # it's distribution so it need sample for actions
+        action_distribution = self.forward(ptu.from_numpy(observation))
+        action = ptu.to_numpy(action_distribution.sample())
         return action
 
     def forward(self, obs: torch.FloatTensor):
@@ -71,11 +77,12 @@ class MLPPolicy(nn.Module):
         """
         if self.discrete:
             # TODO: define the forward pass for a policy with a discrete action space.
-            pass
+            prob_action = self.logits_net(obs)
+            action = distributions.Categorical(logits=prob_action)
         else:
             # TODO: define the forward pass for a policy with a continuous action space.
             pass
-        return None
+        return action
 
     def update(self, obs: np.ndarray, actions: np.ndarray, *args, **kwargs) -> dict:
         """Performs one iteration of gradient descent on the provided batch of data."""
@@ -97,7 +104,17 @@ class MLPPolicyPG(MLPPolicy):
         advantages = ptu.from_numpy(advantages)
 
         # TODO: implement the policy gradient actor update.
-        loss = None
+        optimizer = self.optimizer
+        optimizer.zero_grad()
+
+
+        log_pi = self.forward(obs).log_prob(actions)
+        print('log_pi:',log_pi.shape)
+        print('advantages:',advantages.shape)
+        loss = torch.neg(torch.mean(torch.mul(log_pi, advantages))) # important! pesudo loss to equivalently update gradient
+
+        loss.backward()
+        optimizer.step()
 
         return {
             "Actor Loss": ptu.to_numpy(loss),
