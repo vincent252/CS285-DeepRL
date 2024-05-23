@@ -66,21 +66,36 @@ class DQNAgent(nn.Module):
         # Compute target values
         with torch.no_grad():
             # TODO(student): compute target values
-            next_qa_values = ...
+            next_qa_values = self.target_critic(
+                next_obs
+            )  # copy of critic network, update less frequently to generate stable target values # NOTE: shape (batch_size, num_actions)
 
             if self.use_double_q:
                 raise NotImplementedError
             else:
-                next_action = ...
-            
-            next_q_values = ...
-            target_values = ...
+                next_action = torch.argmax(self.critic(next_obs), dim=1).unsqueeze(
+                    dim=1
+                )
+
+            next_q_values = next_qa_values.gather(
+                dim=1, index=next_action
+            )  # NOTE: Q values of shape (batch_size, 1)
+            target_values = (
+                reward.unsqueeze(dim=1)
+                + torch.logical_not(done.unsqueeze(dim=1))
+                * self.discount
+                * next_q_values
+            )  # NOTE: this is y_i, step 2
+            # NOTE: not done means immediate reward + discounted future reward, done means only immediate reward, no future reward
 
         # TODO(student): train the critic with the target values
-        qa_values = ...
-        q_values = ... # Compute from the data actions; see torch.gather
-        loss = ...
-
+        qa_values = self.critic(
+            obs
+        )  # NOTE: training network (input obs, output action and Q values)
+        q_values = qa_values.gather(
+            dim=1, index=action.unsqueeze(dim=1)
+        )  # Compute from the data actions; see torch.gather # NOTE: compute Q values
+        loss = self.critic_loss(q_values, target_values)  # NOTE: step 3
 
         self.critic_optimizer.zero_grad()
         loss.backward()
