@@ -1,3 +1,4 @@
+import random
 from typing import Sequence, Callable, Tuple, Optional
 
 import torch
@@ -48,7 +49,12 @@ class DQNAgent(nn.Module):
         observation = ptu.from_numpy(np.asarray(observation))[None]
 
         # TODO(student): get the action from the critic using an epsilon-greedy strategy
-        action = ...
+
+        if random.random() < epsilon:
+            action = torch.randint(0, self.num_actions, (1,))
+        else:
+            critic_values = self.critic(observation)
+            action = torch.argmax(critic_values, dim=1)
 
         return ptu.to_numpy(action).squeeze(0).item()
 
